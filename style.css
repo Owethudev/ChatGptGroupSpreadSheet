@@ -1,0 +1,25 @@
+
+table {
+  border-collapse: collapse; /* join borders so lines are single */
+  width: 100%;
+}
+
+/* Add a thin grey border to the table, header and cells */
+table, th, td {
+  border: 1px solid #ccc;
+}
+
+th, td {
+  padding: 8px 10px;
+  text-align: left;
+}
+
+th {
+  background: #f2f2f2;
+  font-weight: 600;
+}
+
+/* media query for small screens */
+@media (max-width: 480px) {
+  th, td { padding: 6px 8px; }
+}
