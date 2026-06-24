@@ -1,445 +1,457 @@
-/* ── 1. TOKENS ────────────────────────────────────────── */
-:root {
-    --bg: #0a0a1a;
-    --surface: #1a1d27;
-    --surface-2: #13151f;
-    --border: #2a2d3a;
-    --border-strong: #3a3d52;
-    --accent: #7c6af7;
-    --accent-dim: rgba(124, 106, 247, 0.15);
-    --accent2: #4fc3f7;
-    --text: #e2e4ef;
-    --text-muted: #6b7094;
-    --error: #f87171;
-    --error-dim: rgba(248, 113, 113, 0.12);
-    --glass: rgba(19, 21, 31, 0.82);
+ /* I put all my colours and sizes here in one place
+   so I only have to change them once if something needs updating */
+ :root {
+     --bg: #0a0a1a;
+     --surface: #1a1d27;
+     --surface-2: #13151f;
+     --border: #2a2d3a;
+     --border-strong: #3a3d52;
+     --accent: #7c6af7;
+     --accent-dim: rgba(124, 106, 247, 0.15);
+     --accent2: #4fc3f7;
+     --text: #e2e4ef;
+     --text-muted: #6b7094;
+     --error: #f87171;
+     --error-dim: rgba(248, 113, 113, 0.12);
+     --glass: rgba(19, 21, 31, 0.82);
 
-    --font-ui: 'Inter', system-ui, sans-serif;
-    --font-mono: 'JetBrains Mono', 'Fira Mono', 'Cascadia Code', monospace;
+     --font-ui: 'Inter', system-ui, sans-serif;
+     --font-mono: 'JetBrains Mono', 'Fira Mono', 'Cascadia Code', monospace;
 
-    --cell-h: 26px;
-    --cell-w: 100px;
-    --rowhead-w: 36px;
-    --radius: 6px;
-}
-
-
-/* ── 2. RESET & BASE ──────────────────────────────────── */
-*,
-*::before,
-*::after {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
-}
-
-body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: var(--font-ui);
-    font-size: 13px;
-    height: 100vh;
-    overflow: hidden;
-    position: relative;
-}
+     --cell-h: 26px;
+     --cell-w: 100px;
+     --rowhead-w: 36px;
+     --radius: 6px;
+ }
 
 
-/* ── 3. FLOATING BACKGROUND LETTERS (PS5 EFFECT) ─────── */
+ /* I reset the default browser styles so nothing looks weird */
+ *,
+ *::before,
+ *::after {
+     box-sizing: border-box;
+     margin: 0;
+     padding: 0;
+ }
 
-/* Each pseudo-element on body creates a floating letter.
-   We use ::before and ::after on multiple elements
-   to get many letters without JavaScript. */
-
-body::before,
-body::after,
-.spreadsheet-app::before,
-.spreadsheet-app::after,
-.app-header::before,
-.app-header::after,
-.formula-row::before,
-.formula-row::after,
-.sheet-table::before,
-.sheet-table::after {
-    position: fixed;
-    font-family: var(--font-mono);
-    font-weight: 900;
-    color: transparent;
-    pointer-events: none;
-    z-index: 0;
-    animation: floatUp linear infinite;
-}
-
-@keyframes floatUp {
-    0% {
-        transform: translateY(110vh) rotate(0deg);
-        opacity: 0;
-    }
-
-    8% {
-        opacity: 1;
-    }
-
-    92% {
-        opacity: 1;
-    }
-
-    100% {
-        transform: translateY(-20vh) rotate(20deg);
-        opacity: 0;
-    }
-}
-
-body::before {
-    content: 'A';
-    font-size: 130px;
-    -webkit-text-stroke: 1.5px rgba(124, 106, 247, 0.18);
-    left: 5%;
-    animation-duration: 12s;
-    animation-delay: 0s;
-}
-
-body::after {
-    content: '=';
-    font-size: 100px;
-    -webkit-text-stroke: 1.5px rgba(79, 195, 247, 0.15);
-    left: 18%;
-    animation-duration: 15s;
-    animation-delay: -4s;
-}
-
-.spreadsheet-app::before {
-    content: 'B';
-    font-size: 110px;
-    -webkit-text-stroke: 1.5px rgba(124, 106, 247, 0.12);
-    left: 30%;
-    animation-duration: 10s;
-    animation-delay: -7s;
-}
-
-.spreadsheet-app::after {
-    content: '+';
-    font-size: 140px;
-    -webkit-text-stroke: 1.5px rgba(79, 195, 247, 0.13);
-    left: 45%;
-    animation-duration: 18s;
-    animation-delay: -2s;
-}
-
-.app-header::before {
-    content: 'C';
-    font-size: 90px;
-    -webkit-text-stroke: 1.5px rgba(124, 106, 247, 0.16);
-    left: 60%;
-    animation-duration: 13s;
-    animation-delay: -9s;
-}
-
-.app-header::after {
-    content: '1';
-    font-size: 120px;
-    -webkit-text-stroke: 1.5px rgba(79, 195, 247, 0.12);
-    left: 72%;
-    animation-duration: 11s;
-    animation-delay: -1s;
-}
-
-.formula-row::before {
-    content: '*';
-    font-size: 150px;
-    -webkit-text-stroke: 1.5px rgba(124, 106, 247, 0.10);
-    left: 82%;
-    animation-duration: 16s;
-    animation-delay: -5s;
-}
-
-.formula-row::after {
-    content: 'J';
-    font-size: 105px;
-    -webkit-text-stroke: 1.5px rgba(79, 195, 247, 0.14);
-    left: 90%;
-    animation-duration: 9s;
-    animation-delay: -11s;
-}
-
-.sheet-table::before {
-    content: '2';
-    font-size: 95px;
-    -webkit-text-stroke: 1.5px rgba(124, 106, 247, 0.13);
-    left: 12%;
-    animation-duration: 14s;
-    animation-delay: -6s;
-}
-
-.sheet-table::after {
-    content: 'G';
-    font-size: 125px;
-    -webkit-text-stroke: 1.5px rgba(79, 195, 247, 0.11);
-    left: 55%;
-    animation-duration: 17s;
-    animation-delay: -13s;
-}
+ /* I made the body take up the full screen with a deep dark background */
+ body {
+     background: var(--bg);
+     color: var(--text);
+     font-family: var(--font-ui);
+     font-size: 13px;
+     height: 100vh;
+     overflow: hidden;
+     position: relative;
+ }
 
 
-/* ── 4. APP CONTAINER ─────────────────────────────────── */
-.spreadsheet-app {
-    display: flex;
-    flex-direction: column;
-    height: 100vh;
-    overflow: hidden;
-    position: relative;
-    z-index: 1;
-}
+ /* ── FLOATING BACKGROUND LETTERS (PS5 EFFECT) ─────────── */
+
+ /* I used CSS pseudo-elements to float spreadsheet letters
+   in the background without writing any JavaScript.
+   Each ::before and ::after creates one floating letter. */
+
+ @keyframes floatUp {
+     0% {
+         transform: translateY(110vh) rotate(0deg);
+         opacity: 0;
+     }
+
+     8% {
+         opacity: 1;
+     }
+
+     92% {
+         opacity: 1;
+     }
+
+     100% {
+         transform: translateY(-20vh) rotate(20deg);
+         opacity: 0;
+     }
+ }
+
+ /* I made all the floating letters share the same base styles */
+ body::before,
+ body::after,
+ .spreadsheet-app::before,
+ .spreadsheet-app::after,
+ .app-header::before,
+ .app-header::after,
+ .formula-row::before,
+ .formula-row::after,
+ .sheet-table::before,
+ .sheet-table::after {
+     position: fixed;
+     font-family: var(--font-mono);
+     font-weight: 900;
+     color: transparent;
+     pointer-events: none;
+     z-index: 0;
+     animation: floatUp linear infinite;
+ }
+
+ /* I placed each letter at a different position and speed
+   so they don't all move at the same time */
+ body::before {
+     content: 'A';
+     font-size: 130px;
+     -webkit-text-stroke: 1.5px rgba(124, 106, 247, 0.18);
+     left: 5%;
+     animation-duration: 12s;
+     animation-delay: 0s;
+ }
+
+ body::after {
+     content: '=';
+     font-size: 100px;
+     -webkit-text-stroke: 1.5px rgba(79, 195, 247, 0.15);
+     left: 18%;
+     animation-duration: 15s;
+     animation-delay: -4s;
+ }
+
+ .spreadsheet-app::before {
+     content: 'B';
+     font-size: 110px;
+     -webkit-text-stroke: 1.5px rgba(124, 106, 247, 0.12);
+     left: 30%;
+     animation-duration: 10s;
+     animation-delay: -7s;
+ }
+
+ .spreadsheet-app::after {
+     content: '+';
+     font-size: 140px;
+     -webkit-text-stroke: 1.5px rgba(79, 195, 247, 0.13);
+     left: 45%;
+     animation-duration: 18s;
+     animation-delay: -2s;
+ }
+
+ .app-header::before {
+     content: 'C';
+     font-size: 90px;
+     -webkit-text-stroke: 1.5px rgba(124, 106, 247, 0.16);
+     left: 60%;
+     animation-duration: 13s;
+     animation-delay: -9s;
+ }
+
+ .app-header::after {
+     content: '1';
+     font-size: 120px;
+     -webkit-text-stroke: 1.5px rgba(79, 195, 247, 0.12);
+     left: 72%;
+     animation-duration: 11s;
+     animation-delay: -1s;
+ }
+
+ .formula-row::before {
+     content: '*';
+     font-size: 150px;
+     -webkit-text-stroke: 1.5px rgba(124, 106, 247, 0.10);
+     left: 82%;
+     animation-duration: 16s;
+     animation-delay: -5s;
+ }
+
+ .formula-row::after {
+     content: 'J';
+     font-size: 105px;
+     -webkit-text-stroke: 1.5px rgba(79, 195, 247, 0.14);
+     left: 90%;
+     animation-duration: 9s;
+     animation-delay: -11s;
+ }
+
+ .sheet-table::before {
+     content: '2';
+     font-size: 95px;
+     -webkit-text-stroke: 1.5px rgba(124, 106, 247, 0.13);
+     left: 12%;
+     animation-duration: 14s;
+     animation-delay: -6s;
+ }
+
+ .sheet-table::after {
+     content: 'G';
+     font-size: 125px;
+     -webkit-text-stroke: 1.5px rgba(79, 195, 247, 0.11);
+     left: 55%;
+     animation-duration: 17s;
+     animation-delay: -13s;
+ }
 
 
-/* ── 5. HEADER ────────────────────────────────────────── */
-.app-header {
-    background: var(--glass);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border-bottom: 1px solid rgba(124, 106, 247, 0.3);
-    padding: 10px 16px 10px 44px;
-    flex-shrink: 0;
-    position: relative;
-    z-index: 2;
-}
-
-.app-title {
-    font-family: var(--font-mono);
-    font-size: 16px;
-    font-weight: 700;
-    letter-spacing: -0.5px;
-    color: var(--accent);
-}
+ /* I made the app take up the full screen height and stack everything vertically */
+ .spreadsheet-app {
+     display: flex;
+     flex-direction: column;
+     height: 100vh;
+     overflow: hidden;
+     position: relative;
+     z-index: 1;
+ }
 
 
-/* ── 6. FORMULA BAR ───────────────────────────────────── */
-.formula-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 6px 14px 6px 44px;
-    background: var(--glass);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border-bottom: 1px solid var(--border);
-    flex-shrink: 0;
-    position: relative;
-    z-index: 2;
-}
+ /* I gave the header a frosted glass look so the floating letters show through it */
+ .app-header {
+     background: var(--glass);
+     backdrop-filter: blur(12px);
+     -webkit-backdrop-filter: blur(12px);
+     border-bottom: 1px solid rgba(124, 106, 247, 0.3);
+     padding: 10px 16px 10px 44px;
+     flex-shrink: 0;
+     position: relative;
+     z-index: 2;
+ }
 
-.formula-label {
-    font-family: var(--font-mono);
-    font-size: 11px;
-    font-style: italic;
-    color: var(--text-muted);
-    white-space: nowrap;
-    flex-shrink: 0;
-}
-
-.formula-input {
-    flex: 1;
-    background: rgba(26, 29, 39, 0.9);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    color: var(--text);
-    font-family: var(--font-mono);
-    font-size: 13px;
-    padding: 5px 10px;
-    outline: none;
-    transition: border-color 0.15s;
-}
-
-.formula-input:focus {
-    border-color: var(--accent);
-}
+ /* I styled the title in purple using a monospace font to match the spreadsheet feel */
+ .app-title {
+     font-family: var(--font-mono);
+     font-size: 16px;
+     font-weight: 700;
+     letter-spacing: -0.5px;
+     color: var(--accent);
+ }
 
 
-/* ── 7. SHEET TABLE ───────────────────────────────────── */
-.spreadsheet-app>.sheet-table {
-    flex: 1;
-    overflow: auto;
-    display: block;
-    position: relative;
-    z-index: 1;
-}
+ /* I styled the formula bar the same as the header — glass effect, same padding */
+ .formula-row {
+     display: flex;
+     align-items: center;
+     gap: 10px;
+     padding: 6px 14px 6px 44px;
+     background: var(--glass);
+     backdrop-filter: blur(12px);
+     -webkit-backdrop-filter: blur(12px);
+     border-bottom: 1px solid var(--border);
+     flex-shrink: 0;
+     position: relative;
+     z-index: 2;
+ }
 
-.sheet-table {
-    border-collapse: collapse;
-    table-layout: fixed;
-    width: max-content;
-}
+ /* I made the label small and italic so it doesn't compete with the input */
+ .formula-label {
+     font-family: var(--font-mono);
+     font-size: 11px;
+     font-style: italic;
+     color: var(--text-muted);
+     white-space: nowrap;
+     flex-shrink: 0;
+ }
 
-.sheet-table[border] {
-    border: none;
-}
+ /* I made the input stretch to fill the remaining space in the bar */
+ .formula-input {
+     flex: 1;
+     background: rgba(26, 29, 39, 0.9);
+     border: 1px solid var(--border);
+     border-radius: var(--radius);
+     color: var(--text);
+     font-family: var(--font-mono);
+     font-size: 13px;
+     padding: 5px 10px;
+     outline: none;
+     transition: border-color 0.15s;
+ }
 
-
-/* ── 8. CORNER, COLUMN & ROW HEADERS ─────────────────── */
-.corner-cell {
-    width: var(--rowhead-w);
-    min-width: var(--rowhead-w);
-    background: rgba(19, 21, 31, 0.95);
-    border-right: 2px solid var(--border-strong);
-    border-bottom: 2px solid var(--border-strong);
-    position: sticky;
-    top: 0;
-    left: 0;
-    z-index: 4;
-}
-
-.col-header {
-    background: rgba(19, 21, 31, 0.95);
-    color: var(--text-muted);
-    font-family: var(--font-mono);
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 1px;
-    text-align: center;
-    padding: 6px 0;
-    width: var(--cell-w);
-    min-width: var(--cell-w);
-    border-right: 1px solid var(--border);
-    border-bottom: 2px solid var(--border-strong);
-    position: sticky;
-    top: 0;
-    z-index: 2;
-    user-select: none;
-    transition: color 0.2s, background 0.2s;
-}
-
-.row-header {
-    background: rgba(19, 21, 31, 0.95);
-    color: var(--text-muted);
-    font-family: var(--font-mono);
-    font-size: 11px;
-    font-weight: 600;
-    text-align: right;
-    padding: 0 6px;
-    width: var(--rowhead-w);
-    min-width: var(--rowhead-w);
-    border-right: 2px solid var(--border-strong);
-    border-bottom: 1px solid var(--border);
-    position: sticky;
-    left: 0;
-    z-index: 1;
-    user-select: none;
-    overflow: visible;
-    transition: color 0.2s;
-}
+ /* I highlight the input border in purple when the user clicks into it */
+ .formula-input:focus {
+     border-color: var(--accent);
+ }
 
 
-/* ── 9. CELLS ─────────────────────────────────────────── */
-.cell {
-    height: var(--cell-h);
-    width: var(--cell-w);
-    min-width: var(--cell-w);
-    padding: 0 6px;
-    border-right: 1px solid var(--border);
-    border-bottom: 1px solid var(--border);
-    font-family: var(--font-mono);
-    font-size: 12px;
-    color: var(--text);
-    cursor: cell;
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-    vertical-align: middle;
-    transition: background 0.1s;
-    background: rgba(15, 17, 23, 0.6);
-}
+ /* I made the table area scrollable so the grid doesn't get cut off */
+ .spreadsheet-app>.sheet-table {
+     flex: 1;
+     overflow: auto;
+     display: block;
+     position: relative;
+     z-index: 1;
+ }
 
-/* Whole row lights up on hover — the PS effect */
-tr:hover .cell {
-    background: rgba(124, 106, 247, 0.06);
-}
+ .sheet-table {
+     border-collapse: collapse;
+     table-layout: fixed;
+     width: max-content;
+ }
 
-tr:hover .row-header {
-    color: var(--accent);
-}
-
-/* Individual cell hover — brighter accent tint */
-.cell:hover {
-    background: rgba(124, 106, 247, 0.18) !important;
-    outline: 1px solid rgba(124, 106, 247, 0.5);
-    outline-offset: -1px;
-    z-index: 1;
-    position: relative;
-}
-
-/* Input overlaid on cell during editing */
-.cell-input {
-    width: 100%;
-    height: 100%;
-    background: var(--surface);
-    border: none;
-    outline: none;
-    color: var(--text);
-    font-family: var(--font-mono);
-    font-size: 12px;
-    padding: 0 6px;
-}
+ /* I removed the browser default border since I draw my own cell borders */
+ .sheet-table[border] {
+     border: none;
+ }
 
 
-/* ── 10. CELL STATES ──────────────────────────────────── */
+ /* I made the corner cell sticky in both directions so it stays in the top left when scrolling */
+ .corner-cell {
+     width: var(--rowhead-w);
+     min-width: var(--rowhead-w);
+     background: rgba(19, 21, 31, 0.95);
+     border-right: 2px solid var(--border-strong);
+     border-bottom: 2px solid var(--border-strong);
+     position: sticky;
+     top: 0;
+     left: 0;
+     z-index: 4;
+ }
 
-/* Selected */
-.cell.selected {
-    background: var(--accent-dim) !important;
-    outline: 2px solid var(--accent);
-    outline-offset: -2px;
-    position: relative;
-    z-index: 2;
-}
+ /* I made the column headers (A, B, C...) stick to the top when the user scrolls down */
+ .col-header {
+     background: rgba(19, 21, 31, 0.95);
+     color: var(--text-muted);
+     font-family: var(--font-mono);
+     font-size: 11px;
+     font-weight: 600;
+     letter-spacing: 1px;
+     text-align: center;
+     padding: 6px 0;
+     width: var(--cell-w);
+     min-width: var(--cell-w);
+     border-right: 1px solid var(--border);
+     border-bottom: 2px solid var(--border-strong);
+     position: sticky;
+     top: 0;
+     z-index: 2;
+     user-select: none;
+     transition: color 0.2s, background 0.2s;
+ }
 
-/* Editing */
-.cell.editing {
-    padding: 0;
-    outline: 2px solid var(--accent);
-    outline-offset: -2px;
-}
-
-/* Number value */
-.cell.is-number {
-    text-align: right;
-    color: var(--accent2);
-}
-
-/* Text value */
-.cell.is-text {
-    text-align: left;
-    color: var(--text);
-}
-
-/* Error value */
-.cell.is-error {
-    text-align: center;
-    color: var(--error);
-    background: var(--error-dim) !important;
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.5px;
-}
+ /* I made the row numbers (1, 2, 3...) stick to the left when the user scrolls right */
+ .row-header {
+     background: rgba(19, 21, 31, 0.95);
+     color: var(--text-muted);
+     font-family: var(--font-mono);
+     font-size: 11px;
+     font-weight: 600;
+     text-align: right;
+     padding: 0 6px;
+     width: var(--rowhead-w);
+     min-width: var(--rowhead-w);
+     border-right: 2px solid var(--border-strong);
+     border-bottom: 1px solid var(--border);
+     position: sticky;
+     left: 0;
+     z-index: 1;
+     user-select: none;
+     overflow: visible;
+     transition: color 0.2s;
+ }
 
 
-/* ── 11. SCROLLBAR ────────────────────────────────────── */
-.spreadsheet-app::-webkit-scrollbar,
-.sheet-table::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-}
+ /* I styled every data cell to be a fixed size with a subtle dark background */
+ .cell {
+     height: var(--cell-h);
+     width: var(--cell-w);
+     min-width: var(--cell-w);
+     padding: 0 6px;
+     border-right: 1px solid var(--border);
+     border-bottom: 1px solid var(--border);
+     font-family: var(--font-mono);
+     font-size: 12px;
+     color: var(--text);
+     cursor: cell;
+     overflow: hidden;
+     white-space: nowrap;
+     text-overflow: ellipsis;
+     vertical-align: middle;
+     transition: background 0.1s;
+     background: rgba(15, 17, 23, 0.6);
+ }
 
-.spreadsheet-app::-webkit-scrollbar-track,
-.sheet-table::-webkit-scrollbar-track {
-    background: transparent;
-}
+ /* I highlight the whole row when the user hovers over it — this is the PS5 effect */
+ tr:hover .cell {
+     background: rgba(124, 106, 247, 0.06);
+ }
 
-.spreadsheet-app::-webkit-scrollbar-thumb,
-.sheet-table::-webkit-scrollbar-thumb {
-    background: var(--border-strong);
-    border-radius: 4px;
-}
+ /* I also turn the row number purple when hovering so it feels connected */
+ tr:hover .row-header {
+     color: var(--accent);
+ }
 
-.spreadsheet-app::-webkit-scrollbar-thumb:hover,
-.sheet-table::-webkit-scrollbar-thumb:hover {
-    background: var(--accent);
-}
+ /* I make the individual cell brighter when the user hovers directly on it */
+ .cell:hover {
+     background: rgba(124, 106, 247, 0.18) !important;
+     outline: 1px solid rgba(124, 106, 247, 0.5);
+     outline-offset: -1px;
+     z-index: 1;
+     position: relative;
+ }
+
+ /* I styled the input that appears inside a cell when the user starts typing */
+ .cell-input {
+     width: 100%;
+     height: 100%;
+     background: var(--surface);
+     border: none;
+     outline: none;
+     color: var(--text);
+     font-family: var(--font-mono);
+     font-size: 12px;
+     padding: 0 6px;
+ }
+
+
+ /* I show a purple outline and background when a cell is selected */
+ .cell.selected {
+     background: var(--accent-dim) !important;
+     outline: 2px solid var(--accent);
+     outline-offset: -2px;
+     position: relative;
+     z-index: 2;
+ }
+
+ /* I remove cell padding when editing so the input fills the whole cell */
+ .cell.editing {
+     padding: 0;
+     outline: 2px solid var(--accent);
+     outline-offset: -2px;
+ }
+
+ /* I right-align numbers and colour them blue so they stand out from text */
+ .cell.is-number {
+     text-align: right;
+     color: var(--accent2);
+ }
+
+ /* I left-align plain text — this is the default reading direction */
+ .cell.is-text {
+     text-align: left;
+     color: var(--text);
+ }
+
+ /* I show errors in red with a red tint background so they're impossible to miss */
+ .cell.is-error {
+     text-align: center;
+     color: var(--error);
+     background: var(--error-dim) !important;
+     font-size: 10px;
+     font-weight: 700;
+     letter-spacing: 0.5px;
+ }
+
+
+ /* I styled the scrollbar to match the dark theme */
+ .spreadsheet-app::-webkit-scrollbar,
+ .sheet-table::-webkit-scrollbar {
+     width: 6px;
+     height: 6px;
+ }
+
+ .spreadsheet-app::-webkit-scrollbar-track,
+ .sheet-table::-webkit-scrollbar-track {
+     background: transparent;
+ }
+
+ .spreadsheet-app::-webkit-scrollbar-thumb,
+ .sheet-table::-webkit-scrollbar-thumb {
+     background: var(--border-strong);
+     border-radius: 4px;
+ }
+
+ /* I turn the scrollbar purple when the user hovers over it */
+ .spreadsheet-app::-webkit-scrollbar-thumb:hover,
+ .sheet-table::-webkit-scrollbar-thumb:hover {
+     background: var(--accent);
+ }
