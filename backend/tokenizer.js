@@ -12,7 +12,9 @@
 // Still yet to be fully implemented, but the idea is that this will be a single source of truth for all token types and their properties.
 const TOKEN_TYPES = {
   EQUALS: 'EQUALS',
-  NUMBER: 'NUMBER'
+  NUMBER: 'NUMBER',
+  
+  
 };
 
 
@@ -26,7 +28,7 @@ function isDigit(char) {
 
 //Returns true if the character can start an identifier (letter or underscore).
 function isAlpha(char) {
-  return /[a-zA-Z_]/test(char);
+  return /[a-zA-Z_]/.test(char);
 }
 
 //Return true for characters that are valid inside a cell reference (letters, digits, and underscores) or names (letters, digits, underscores, and periods).
