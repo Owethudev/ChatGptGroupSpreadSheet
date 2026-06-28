@@ -11,8 +11,18 @@
 // A fixed vocabulary of everything the tokenizer can produce.
 // Still yet to be fully implemented, but the idea is that this will be a single source of truth for all token types and their properties.
 const TOKEN_TYPES = {
-  EQUALS: 'EQUALS',
-  NUMBER: 'NUMBER'
+  EQUALS: 'EQUALS', // self-explanatory
+  NUMBER: 'NUMBER',  // for numbers 13, 26
+  BOOLEAN: 'BOOLEAN', //for TRUE or FALSE
+  STRING:  'STRING', // for character texts e.g "Hello"
+  CELL_REF: 'CELL_REF', // for A1, B12, AA3 cells
+  FUNCTION: 'FUNCTION', // to SUM, IF, AVERAGE
+  OPERATOR: 'OPERATOR', //to perform calculations +-*/^
+  COMMA: 'COMMA', //to separate function argument
+  LPAREN: 'LPAREN', //left parentheses (
+  RPAREN: 'RPAREN', //right parentheses )
+  EOF: 'EOF', //to show the end of input
+
 };
 
 
@@ -26,7 +36,7 @@ function isDigit(char) {
 
 //Returns true if the character can start an identifier (letter or underscore).
 function isAlpha(char) {
-  return /[a-zA-Z_]/test(char);
+  return /[a-zA-Z_]/.test(char);
 }
 
 //Return true for characters that are valid inside a cell reference (letters, digits, and underscores) or names (letters, digits, underscores, and periods).
@@ -81,12 +91,69 @@ function tokenize(input) {
       continue;
     }
 
-    current++;
+    //Strings
+    //anything wrapped in double or single q " ", ' '
+    if (char === '"') {
+      let str = '';
+      current++; 
+      while (current < input.length && input[current] !== '"') {
+        str += input[current++];
+      }
+      current++;
+      tokens.push(makeToken(TOKEN_TYPES.STRING, str));
+      continue;
+    }
+
+    //Words
+    //Any sequence that starts with a letter
+    //This function reads the whole word first then decide what it is.
+    if (isAlpha(char)) {
+        let word = '';
+        while (current < input.length && isAlphaNumeric(input[current])) {
+          word += input[current++];       
+      }
+    }
+
+    //Boolean TRUE/FALSE
+    if (word.toUpperCase() === 'TRUE') { tokens.push(makeToken(TOKEN_TYPES.BOOLEAN, true)); continue; }
+    if (word.toUpperCase() === 'FALSE') { tokens.push(makeToken(TOKEN_TYPES.BOOLEAN, false)); continue; }
+
+    // for cell reference
+     if (/^[A-Za-z]+[0-9]+$/.test(word)) {
+        tokens.push(makeToken(TOKEN_TYPES.CELL_REF, word.toUpperCase()));
+        continue; 
   }
 
+  //Function name
+  if (input[current] === '(') {
+    tokens.push(makeToken(TOKEN_TYPES.FUNCTION, word.toUpperCase()));
+    continue;
+  }
+
+  //Anything else goes into unknown identifier
+  tokens.push(makeToken('IDENTIFIER', word));
+  continue;
+
+
+  // Operators
+  if (isOperator(char)) {
+    tokens.push(makeToken(TOKEN_TYPES.OPERATOR, char));
+    current++;
+    continue;
+  }
+
+  if (char === '(') { tokens.push(makeToken(TOKEN_TYPES.LPAREN, '(')); current++; continue; }
+  if (char === ')') { tokens.push(makeToken(TOKEN_TYPES.RPAREN, ')')); current++; continue; }
+  if (char === ',') { tokens.push(makeToken(TOKEN_TYPES.COMMA, ',')); current++; continue; }
+   //For Unknown characters
+   throw new Error(`Tokenizer: unexpected character '${char}' at position ${current}`);
+
+   //Always Close with EOF
+   tokens.push(makeToken(TOKEN_TYPES.EOF, null));
   return tokens;
 }
 
+//EXPORTS
 module.exports = {
   TOKEN_TYPES,
   tokenize
