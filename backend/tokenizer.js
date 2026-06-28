@@ -21,6 +21,7 @@ const TOKEN_TYPES = {
   COMMA: 'COMMA', //to separate function argument
   LPAREN: 'LPAREN', //left parentheses (
   RPAREN: 'RPAREN', //right parentheses )
+  COLON: 'COLON', //to separate range cells e.g A1:A5
   EOF: 'EOF', //to show the end of input
 
 };
@@ -42,6 +43,11 @@ function isAlpha(char) {
 //Return true for characters that are valid inside a cell reference (letters, digits, and underscores) or names (letters, digits, underscores, and periods).
 function isCellReferenceChar(char) {
   return /[a-zA-Z0-9_.]/.test(char);
+}
+
+//Returns true if the character is a letter or a digit.
+function isAlphaNumeric(char) {
+  return isAlpha(char) || isDigit(char);
 }
 
 //Returns true for four basic arithmetic operators: +, -, *, /
@@ -100,7 +106,7 @@ function tokenize(input) {
         str += input[current++];
       }
       current++;
-      tokens.push(makeToken(TOKEN_TYPES.STRING, str));
+      tokens.push(createToken(TOKEN_TYPES.STRING, str));
       continue;
     }
 
@@ -112,44 +118,45 @@ function tokenize(input) {
         while (current < input.length && isAlphaNumeric(input[current])) {
           word += input[current++];       
       }
+
+      //Boolean TRUE/FALSE
+      if (word.toUpperCase() === 'TRUE') { tokens.push(createToken(TOKEN_TYPES.BOOLEAN, true)); continue; }
+      if (word.toUpperCase() === 'FALSE') { tokens.push(createToken(TOKEN_TYPES.BOOLEAN, false)); continue; }
+
+      // for cell reference
+      if (/^[A-Za-z]+[0-9]+$/.test(word)) {
+        tokens.push(createToken(TOKEN_TYPES.CELL_REF, word.toUpperCase()));
+        continue;
+      }
+
+      //Function name
+      if (input[current] === '(') {
+        tokens.push(createToken(TOKEN_TYPES.FUNCTION, word.toUpperCase()));
+        continue;
+      }
+
+      //Anything else goes into unknown identifier
+      tokens.push(createToken('IDENTIFIER', word));
+      continue;
     }
 
-    //Boolean TRUE/FALSE
-    if (word.toUpperCase() === 'TRUE') { tokens.push(makeToken(TOKEN_TYPES.BOOLEAN, true)); continue; }
-    if (word.toUpperCase() === 'FALSE') { tokens.push(makeToken(TOKEN_TYPES.BOOLEAN, false)); continue; }
+    // Operators
+    if (isOperator(char)) {
+      tokens.push(createToken(TOKEN_TYPES.OPERATOR, char));
+      current++;
+      continue;
+    }
 
-    // for cell reference
-     if (/^[A-Za-z]+[0-9]+$/.test(word)) {
-        tokens.push(makeToken(TOKEN_TYPES.CELL_REF, word.toUpperCase()));
-        continue; 
+    if (char === '(') { tokens.push(createToken(TOKEN_TYPES.LPAREN, '(')); current++; continue; }
+    if (char === ')') { tokens.push(createToken(TOKEN_TYPES.RPAREN, ')')); current++; continue; }
+    if (char === ',') { tokens.push(createToken(TOKEN_TYPES.COMMA, ',')); current++; continue; }
+    if (char === ':') { tokens.push(createToken(TOKEN_TYPES.COLON, ':')); current++; continue; }
+    //For Unknown characters
+    throw new Error(`Tokenizer: unexpected character '${char}' at position ${current}`);
   }
 
-  //Function name
-  if (input[current] === '(') {
-    tokens.push(makeToken(TOKEN_TYPES.FUNCTION, word.toUpperCase()));
-    continue;
-  }
-
-  //Anything else goes into unknown identifier
-  tokens.push(makeToken('IDENTIFIER', word));
-  continue;
-
-
-  // Operators
-  if (isOperator(char)) {
-    tokens.push(makeToken(TOKEN_TYPES.OPERATOR, char));
-    current++;
-    continue;
-  }
-
-  if (char === '(') { tokens.push(makeToken(TOKEN_TYPES.LPAREN, '(')); current++; continue; }
-  if (char === ')') { tokens.push(makeToken(TOKEN_TYPES.RPAREN, ')')); current++; continue; }
-  if (char === ',') { tokens.push(makeToken(TOKEN_TYPES.COMMA, ',')); current++; continue; }
-   //For Unknown characters
-   throw new Error(`Tokenizer: unexpected character '${char}' at position ${current}`);
-
-   //Always Close with EOF
-   tokens.push(makeToken(TOKEN_TYPES.EOF, null));
+  //Always Close with EOF
+  tokens.push(createToken(TOKEN_TYPES.EOF, null));
   return tokens;
 }
 
