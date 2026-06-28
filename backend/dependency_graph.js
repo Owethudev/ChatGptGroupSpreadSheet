@@ -1,237 +1,212 @@
 /*
-Simple Dependency Graph + Recalculation Engine
+  Simple Dependency Graph + Recalculation Engine
 
-What this does:
-- Tracks which cells depend on others
-- Recalculates only affected cells
-- Detects circular references
-- Propagates errors
-
+  What this does:
+  - Tracks which cells depend on others
+  - Recalculates cells when a source cell changes
+  - Detects circular references
+  - Uses the current evaluator.js formula engine
 */
 
-const { evaluate } = require("./evaluationEngine");
+const { evaluateFormula, ERRORS, expandRange } = require('./evaluator');
+const { tokenize, TOKEN_TYPES } = require('./tokenizer');
 
-// forward: A1 -> [B1, C1]
-const dependents = {};
-
-// reverse: B1 -> [A1]
-const dependencies = {};
-
-// stored values + ASTs
-const values = {};
-const asts = {};
-
-// errors
-const errors = {};
-
-/*
-SET CELL Function
-*/
-
-function setCell(cell, ast, sheet) {
-
-    asts[cell] = ast;
-
-    // 1. check for circular reference
-    if (hasCycle(cell, ast)) {
-        errors[cell] = "#CIRCULAR_REF";
-        values[cell] = "#ERROR";
-        return "#CIRCULAR_REF";
-    }
-
-    // 2. remove old links
-    removeOldLinks(cell);
-
-    // 3. find new dependencies
-    const deps = getDeps(ast);
-    dependencies[cell] = deps;
-
-    // 4. build forward links
-    for (const d of deps) {
-
-        if (!dependents[d]) {
-            dependents[d] = new Set();
-        }
-
-        dependents[d].add(cell);
-    }
-
-    // 5. calculate value
-    values[cell] = safeEval(ast, sheet);
-
-    // 6. update everything that depends on it
-    updateDependents(cell, sheet);
-
-    return values[cell];
+// Returns a clean spreadsheet cell address like A1
+function normalizeCell(address) {
+  return String(address).trim().toUpperCase();
 }
 
-/*
-GET CELL VALUE
-*/
+// Returns true if a raw cell value is a formula
+function isFormula(raw) {
+  return typeof raw === 'string' && raw.trim().startsWith('=');
+}
 
-function getCell(cell) {
+// Turns plain cell contents into the displayed/calculated value
+function valueFromRaw(raw) {
+  if (raw === '' || raw === undefined || raw === null) return 0;
+  if (typeof raw === 'number') return raw;
 
-    if (errors[cell]) return errors[cell];
+  const str = String(raw).trim();
+  if (str === '') return 0;
+  if (str.startsWith('#')) return str;
+  if (/^-?\d+(\.\d+)?$/.test(str)) return parseFloat(str);
+
+  return str;
+}
+
+// Finds all cell references used by a formula
+function getDependencies(raw) {
+  if (!isFormula(raw)) return [];
+
+  try {
+    const tokens = tokenize(raw);
+    const refs = new Set();
+
+    for (let i = 0; i < tokens.length; i++) {
+      const token = tokens[i];
+
+      if (token.type !== TOKEN_TYPES.CELL_REF) continue;
+
+      const next = tokens[i + 1];
+      const end = tokens[i + 2];
+
+      if (next?.type === TOKEN_TYPES.COLON && end?.type === TOKEN_TYPES.CELL_REF) {
+        const range = expandRange(token.value, end.value);
+        if (!String(range).startsWith('#')) {
+          range.forEach((cell) => refs.add(normalizeCell(cell)));
+        }
+        i += 2;
+        continue;
+      }
+
+      refs.add(normalizeCell(token.value));
+    }
+
+    return Array.from(refs);
+  } catch (err) {
+    return [];
+  }
+}
+
+function createSpreadsheet(initialCells = {}) {
+  const rawValues = {};
+  const values = {};
+  const dependencies = {};
+  const dependents = {};
+
+  Object.keys(initialCells).forEach((address) => {
+    rawValues[normalizeCell(address)] = initialCells[address];
+  });
+
+  function rebuildGraph() {
+    Object.keys(dependencies).forEach((key) => delete dependencies[key]);
+    Object.keys(dependents).forEach((key) => delete dependents[key]);
+
+    Object.keys(rawValues).forEach((cell) => {
+      const deps = getDependencies(rawValues[cell]);
+      dependencies[cell] = deps;
+
+      deps.forEach((dep) => {
+        if (!dependents[dep]) dependents[dep] = new Set();
+        dependents[dep].add(cell);
+      });
+    });
+  }
+
+  function computeCell(address, visiting = new Set(), cache = new Map()) {
+    const cell = normalizeCell(address);
+
+    if (cache.has(cell)) return cache.get(cell);
+
+    if (visiting.has(cell)) {
+      visiting.forEach((cycleCell) => {
+        values[cycleCell] = ERRORS.CIRCULAR;
+        cache.set(cycleCell, ERRORS.CIRCULAR);
+      });
+      values[cell] = ERRORS.CIRCULAR;
+      cache.set(cell, ERRORS.CIRCULAR);
+      return ERRORS.CIRCULAR;
+    }
+
+    visiting.add(cell);
+
+    const raw = rawValues[cell];
+    let result;
+
+    if (isFormula(raw)) {
+      const computedCells = new Proxy({}, {
+        has() {
+          return true;
+        },
+        get(target, prop) {
+          return computeCell(normalizeCell(prop), visiting, cache);
+        }
+      });
+
+      result = evaluateFormula(raw, computedCells);
+    } else {
+      result = valueFromRaw(raw);
+    }
+
+    visiting.delete(cell);
+    values[cell] = result;
+    cache.set(cell, result);
+    return result;
+  }
+
+  function recalculateAll() {
+    const cache = new Map();
+    Object.keys(values).forEach((key) => delete values[key]);
+    Object.keys(rawValues).forEach((cell) => computeCell(cell, new Set(), cache));
+    return { ...values };
+  }
+
+  function setCell(address, raw) {
+    const cell = normalizeCell(address);
+    rawValues[cell] = raw;
+    rebuildGraph();
+    recalculateAll();
+    return values[cell];
+  }
+
+  function getCell(address) {
+    const cell = normalizeCell(address);
+
+    if (!(cell in values) && cell in rawValues) {
+      computeCell(cell);
+    }
 
     return values[cell] ?? 0;
-}
+  }
 
-/*
-REMOVE OLD LINKS
-*/
+  function getRawCell(address) {
+    return rawValues[normalizeCell(address)] ?? '';
+  }
 
-function removeOldLinks(cell) {
+  function getCellDependencies(address) {
+    return dependencies[normalizeCell(address)] ?? [];
+  }
 
-    const old = dependencies[cell];
-    if (!old) return;
+  function getCellDependents(address) {
+    return Array.from(dependents[normalizeCell(address)] ?? []);
+  }
 
-    for (const d of old) {
-        dependents[d]?.delete(cell);
-    }
-
-    delete dependencies[cell];
-}
-
-/*
-GET DEPENDENCIES FROM AST
-*/
-
-function getDeps(node, list = new Set()) {
-
-    if (!node) return list;
-
-    if (node.type === "CellReference") {
-        list.add(node.reference);
-    }
-
-    if (node.type === "BinaryExpression") {
-        getDeps(node.left, list);
-        getDeps(node.right, list);
-    }
-
-    if (node.type === "FunctionCall") {
-        node.arguments.forEach(arg => getDeps(arg, list));
-    }
-
-    if (node.type === "Range") {
-        expandRange(node.start, node.end)
-            .forEach(c => list.add(c));
-    }
-
-    return list;
-}
-
-/*
-RECALCULATION
-*/
-
-function updateDependents(startCell, sheet) {
-
-    const queue = [startCell];
+  function getRecalculationOrder(address) {
+    const start = normalizeCell(address);
+    const order = [];
     const visited = new Set();
+    const queue = [start];
 
     while (queue.length > 0) {
+      const current = queue.shift();
+      const nextCells = dependents[current] ?? new Set();
 
-        const current = queue.shift();
-
-        const deps = dependents[current];
-        if (!deps) continue;
-
-        for (const cell of deps) {
-
-            if (visited.has(cell)) continue;
-            visited.add(cell);
-
-            const ast = asts[cell];
-            if (!ast) continue;
-
-            const value = safeEval(ast, sheet);
-
-            values[cell] = value;
-
-            if (value === "#ERROR") {
-                errors[cell] = "#ERROR";
-            } else {
-                delete errors[cell];
-            }
-
-            queue.push(cell);
-        }
-    }
-}
-/*
-SAFE EVALUATION
-*/
-
-function safeEval(ast, sheet) {
-
-    try {
-        return evaluate(ast, sheet);
-    } catch (e) {
-        return "#ERROR";
-    }
-}
-/*
-RANGE HELPERS
-*/
-
-function expandRange(start, end) {
-
-    const cells = [];
-
-    const startCol = getCol(start);
-    const startRow = getRow(start);
-
-    const endCol = getCol(end);
-    const endRow = getRow(end);
-
-    for (let c = colToNum(startCol); c <= colToNum(endCol); c++) {
-        for (let r = startRow; r <= endRow; r++) {
-            cells.push(numToCol(c) + r);
-        }
+      nextCells.forEach((cell) => {
+        if (visited.has(cell)) return;
+        visited.add(cell);
+        order.push(cell);
+        queue.push(cell);
+      });
     }
 
-    return cells;
+    return order;
+  }
+
+  rebuildGraph();
+  recalculateAll();
+
+  return {
+    setCell,
+    getCell,
+    getRawCell,
+    getDependencies: getCellDependencies,
+    getDependents: getCellDependents,
+    getRecalculationOrder,
+    recalculateAll
+  };
 }
-
-function getCol(cell) {
-    return cell.match(/[A-Z]+/)[0];
-}
-
-function getRow(cell) {
-    return Number(cell.match(/\d+/)[0]);
-}
-
-function colToNum(col) {
-
-    let num = 0;
-
-    for (const c of col) {
-        num = num * 26 + (c.charCodeAt(0) - 64);
-    }
-
-    return num;
-}
-
-function numToCol(num) {
-
-    let col = "";
-
-    while (num > 0) {
-
-        const r = (num - 1) % 26;
-        col = String.fromCharCode(65 + r) + col;
-        num = Math.floor((num - 1) / 26);
-    }
-
-    return col;
-}
-
-/*
-EXPORTS
-*/
 
 module.exports = {
-    setCell,
-    getCell
+  createSpreadsheet,
+  getDependencies
 };
