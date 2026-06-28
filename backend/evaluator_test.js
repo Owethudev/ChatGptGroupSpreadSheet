@@ -132,4 +132,39 @@ describe('cell references', () => {
   });
 });
 
+//function for testing SUM and AVG ranges
+describe('functions and ranges', () => {
+  it('sums a vertical range', () => {
+    expect(evaluateFormula('=SUM(A1:A3)', { A1: '5', A2: '10', A3: '15' })).toBe(30);
+  });
+
+  it('averages a vertical range', () => {
+    expect(evaluateFormula('=AVG(A1:A3)', { A1: '5', A2: '10', A3: '15' })).toBe(10);
+  });
+
+  it('sums a rectangular range', () => {
+    expect(evaluateFormula('=SUM(A1:B2)', { A1: '1', B1: '2', A2: '3', B2: '4' })).toBe(10);
+  });
+
+  it('averages a rectangular range', () => {
+    expect(evaluateFormula('=AVG(A1:B2)', { A1: '1', B1: '2', A2: '3', B2: '4' })).toBe(2.5);
+  });
+
+  it('treats empty cells in a range as 0', () => {
+    expect(evaluateFormula('=SUM(A1:A3)', { A1: '5', A3: '15' })).toBe(20);
+  });
+
+  it('returns #VALUE! when a range contains text', () => {
+    expect(evaluateFormula('=SUM(A1:A2)', { A1: 'Hello', A2: '5' })).toBe(ERRORS.VALUE);
+  });
+
+  it('propagates errors from cells inside a range', () => {
+    expect(evaluateFormula('=AVG(A1:A2)', { A1: ERRORS.DIV_ZERO, A2: '5' })).toBe(ERRORS.DIV_ZERO);
+  });
+
+  it('returns #ERROR! when SUM is given a single cell instead of a range', () => {
+    expect(evaluateFormula('=SUM(A1)', { A1: '5' })).toBe(ERRORS.SYNTAX);
+  });
+});
+
 printSummary();

@@ -52,6 +52,76 @@ function resolveCellValue(address, cells) {
   return ERRORS.VALUE;
 }
 
+// Turns a cell address like A1 into column and row numbers
+function parseCellAddress(address) {
+  const match = /^([A-Z]+)(\d+)$/i.exec(address.toUpperCase());
+  if (!match) return null;
+
+  const colLetters = match[1];
+  const row = parseInt(match[2], 10);
+  let col = 0;
+
+  for (let i = 0; i < colLetters.length; i++) {
+    col = col * 26 + (colLetters.charCodeAt(i) - 64);
+  }
+
+  return { col, row };
+}
+
+// Builds a cell address from column and row numbers
+function cellAddressFromParts(col, row) {
+  let letters = '';
+  let c = col;
+
+  while (c > 0) {
+    const rem = (c - 1) % 26;
+    letters = String.fromCharCode(65 + rem) + letters;
+    c = Math.floor((c - 1) / 26);
+  }
+
+  return letters + row;
+}
+
+// Expands A1:B2 into ['A1', 'B1', 'A2', 'B2']
+function expandRange(start, end) {
+  const startParts = parseCellAddress(start);
+  const endParts = parseCellAddress(end);
+
+  if (!startParts || !endParts) {
+    return ERRORS.SYNTAX;
+  }
+
+  const minCol = Math.min(startParts.col, endParts.col);
+  const maxCol = Math.max(startParts.col, endParts.col);
+  const minRow = Math.min(startParts.row, endParts.row);
+  const maxRow = Math.max(startParts.row, endParts.row);
+  const addresses = [];
+
+  for (let row = minRow; row <= maxRow; row++) {
+    for (let col = minCol; col <= maxCol; col++) {
+      addresses.push(cellAddressFromParts(col, row));
+    }
+  }
+
+  return addresses;
+}
+
+// Reads every cell in a range and returns their numeric values
+function evaluateRange(start, end, cells) {
+  const addresses = expandRange(start, end);
+  if (isError(addresses)) return addresses;
+
+  const values = [];
+
+  for (const address of addresses) {
+    const value = resolveCellValue(address, cells);
+    if (isError(value)) return value;
+    values.push(value);
+  }
+
+  return values;
+}
+
 // Main entry point: evaluate a full formula string like "=1+2*3"
 function evaluateFormula(input, cells = {}) {
   const tokens = tokenize(input);
@@ -131,7 +201,38 @@ function createParser(tokens, cells) {
     return left;
   }
 
-  // Handles numbers, cell references, and parentheses
+  // Handles SUM(A1:A5) and AVG(A1:A5)
+  function parseFunctionCall(fnName) {
+    if (fnName !== 'SUM' && fnName !== 'AVG') {
+      return ERRORS.SYNTAX;
+    }
+
+    if (!match(TOKEN_TYPES.LPAREN)) return ERRORS.SYNTAX;
+
+    if (!match(TOKEN_TYPES.CELL_REF)) return ERRORS.SYNTAX;
+    const start = previous().value;
+
+    if (!match(TOKEN_TYPES.COLON)) return ERRORS.SYNTAX;
+
+    if (!match(TOKEN_TYPES.CELL_REF)) return ERRORS.SYNTAX;
+    const end = previous().value;
+
+    if (!match(TOKEN_TYPES.RPAREN)) return ERRORS.SYNTAX;
+
+    const values = evaluateRange(start, end, cells);
+    if (isError(values)) return values;
+
+    if (fnName === 'SUM') {
+      return values.reduce((total, value) => total + value, 0);
+    }
+
+    if (values.length === 0) return ERRORS.SYNTAX;
+
+    const total = values.reduce((sum, value) => sum + value, 0);
+    return total / values.length;
+  }
+
+  // Handles numbers, cell references, functions, and parentheses
   function parseFactor() {
     if (match(TOKEN_TYPES.NUMBER)) {
       return previous().value;
@@ -139,6 +240,10 @@ function createParser(tokens, cells) {
 
     if (match(TOKEN_TYPES.CELL_REF)) {
       return resolveCellValue(previous().value, cells);
+    }
+
+    if (match(TOKEN_TYPES.FUNCTION)) {
+      return parseFunctionCall(previous().value);
     }
 
     if (match(TOKEN_TYPES.LPAREN)) {
@@ -168,5 +273,6 @@ function createParser(tokens, cells) {
 module.exports = {
   ERRORS,
   evaluateFormula,
-  resolveCellValue
+  resolveCellValue,
+  expandRange
 };
