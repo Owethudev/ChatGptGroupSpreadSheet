@@ -12,10 +12,10 @@ What this does:
 const { evaluate } = require("./evaluationEngine");
 
 // forward: A1 -> [B1, C1]
-const dependents = {};
+const dependentsMap = {};
 
 // reverse: B1 -> [A1]
-const dependencies = {};
+const dependenciesMap = {};
 
 // stored values + ASTs
 const values = {};
@@ -25,7 +25,7 @@ const asts = {};
 const errors = {};
 
 /*
-SET CELL Function
+SET CELL
 */
 
 function setCell(cell, ast, sheet) {
@@ -33,34 +33,34 @@ function setCell(cell, ast, sheet) {
     asts[cell] = ast;
 
     // 1. check for circular reference
-    if (hasCycle(cell, ast)) {
+    if (detectCycle(cell, ast)) {
         errors[cell] = "#CIRCULAR_REF";
         values[cell] = "#ERROR";
         return "#CIRCULAR_REF";
     }
 
-    // 2. remove old links
-    removeOldLinks(cell);
+    // 2. remove old dependencies
+    removeDependencies(cell);
 
-    // 3. find new dependencies
-    const deps = getDeps(ast);
-    dependencies[cell] = deps;
+    // 3. find new dependencies from AST
+    const deps = extractDependencies(ast);
+    dependenciesMap[cell] = deps;
 
     // 4. build forward links
     for (const d of deps) {
 
-        if (!dependents[d]) {
-            dependents[d] = new Set();
+        if (!dependentsMap[d]) {
+            dependentsMap[d] = new Set();
         }
 
-        dependents[d].add(cell);
+        dependentsMap[d].add(cell);
     }
 
     // 5. calculate value
-    values[cell] = safeEval(ast, sheet);
+    values[cell] = safeEvaluate(ast, sheet);
 
-    // 6. update everything that depends on it
-    updateDependents(cell, sheet);
+    // 6. propagate updates to dependents
+    propagate(cell, sheet);
 
     return values[cell];
 }
@@ -77,26 +77,26 @@ function getCell(cell) {
 }
 
 /*
-REMOVE OLD LINKS
+REMOVE OLD DEPENDENCIES
 */
 
-function removeOldLinks(cell) {
+function removeDependencies(cell) {
 
-    const old = dependencies[cell];
+    const old = dependenciesMap[cell];
     if (!old) return;
 
     for (const d of old) {
-        dependents[d]?.delete(cell);
+        dependentsMap[d]?.delete(cell);
     }
 
-    delete dependencies[cell];
+    delete dependenciesMap[cell];
 }
 
 /*
 GET DEPENDENCIES FROM AST
 */
 
-function getDeps(node, list = new Set()) {
+function extractDependencies(node, list = new Set()) {
 
     if (!node) return list;
 
@@ -105,12 +105,12 @@ function getDeps(node, list = new Set()) {
     }
 
     if (node.type === "BinaryExpression") {
-        getDeps(node.left, list);
-        getDeps(node.right, list);
+        extractDependencies(node.left, list);
+        extractDependencies(node.right, list);
     }
 
     if (node.type === "FunctionCall") {
-        node.arguments.forEach(arg => getDeps(arg, list));
+        node.arguments.forEach(arg => extractDependencies(arg, list));
     }
 
     if (node.type === "Range") {
@@ -125,7 +125,7 @@ function getDeps(node, list = new Set()) {
 RECALCULATION
 */
 
-function updateDependents(startCell, sheet) {
+function propagate(startCell, sheet) {
 
     const queue = [startCell];
     const visited = new Set();
@@ -134,7 +134,7 @@ function updateDependents(startCell, sheet) {
 
         const current = queue.shift();
 
-        const deps = dependents[current];
+        const deps = dependentsMap[current];
         if (!deps) continue;
 
         for (const cell of deps) {
@@ -145,7 +145,7 @@ function updateDependents(startCell, sheet) {
             const ast = asts[cell];
             if (!ast) continue;
 
-            const value = safeEval(ast, sheet);
+            const value = safeEvaluate(ast, sheet);
 
             values[cell] = value;
 
@@ -163,14 +163,53 @@ function updateDependents(startCell, sheet) {
 SAFE EVALUATION
 */
 
-function safeEval(ast, sheet) {
+function safeEvaluate(ast, sheet) {
 
     try {
         return evaluate(ast, sheet);
-    } catch (e) {
+    } catch (err) {
         return "#ERROR";
     }
 }
+/*
+CYCLE DETECTION
+*/
+function detectCycle(startCell, ast) {
+
+    const deps = extractDependencies(ast);
+    const visited = new Set();
+    const stack = new Set();
+
+    function dfs(current) {
+        if (current === startCell) return true;
+        if (visited.has(current)) return false;
+        if (stack.has(current)) return false;
+
+        stack.add(current);
+
+        const next = dependenciesMap[current];
+        if (next) {
+            for (const dep of next) {
+                if (dfs(dep)) {
+                    return true;
+                }
+            }
+        }
+
+        stack.delete(current);
+        visited.add(current);
+        return false;
+    }
+
+    for (const dep of deps) {
+        if (dfs(dep)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 /*
 RANGE HELPERS
 */
