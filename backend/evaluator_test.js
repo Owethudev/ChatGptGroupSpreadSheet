@@ -104,4 +104,32 @@ describe('errors', () => {
   });
 });
 
+//function for testing cell references
+describe('cell references', () => {
+  it('adds values from two cells', () => {
+    expect(evaluateFormula('=A1+B1', { A1: '5', B1: '10' })).toBe(15);
+  });
+
+  it('multiplies a cell by a number', () => {
+    expect(evaluateFormula('=A1*2', { A1: '5' })).toBe(10);
+  });
+
+  it('uses parentheses with cell references', () => {
+    expect(evaluateFormula('=(A1+B1)*2', { A1: '5', B1: '10' })).toBe(30);
+  });
+
+  it('treats empty or missing cells as 0', () => {
+    expect(evaluateFormula('=A1+5', { A1: '' })).toBe(5);
+    expect(evaluateFormula('=A1+5', {})).toBe(5);
+  });
+
+  it('returns #VALUE! when a cell contains text', () => {
+    expect(evaluateFormula('=A1+1', { A1: 'Hello' })).toBe(ERRORS.VALUE);
+  });
+
+  it('propagates errors from referenced cells', () => {
+    expect(evaluateFormula('=A1+1', { A1: ERRORS.DIV_ZERO })).toBe(ERRORS.DIV_ZERO);
+  });
+});
+
 printSummary();

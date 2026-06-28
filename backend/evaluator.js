@@ -21,15 +21,46 @@ function isError(value) {
   return typeof value === 'string' && value.startsWith('#');
 }
 
+// Reads a cell value from the sheet data and turns it into a number or error
+function resolveCellValue(address, cells) {
+  if (!cells || !(address in cells)) {
+    return 0;
+  }
+
+  const raw = cells[address];
+
+  if (raw === '' || raw === undefined || raw === null) {
+    return 0;
+  }
+
+  if (isError(raw)) {
+    return raw;
+  }
+
+  if (typeof raw === 'number') {
+    return raw;
+  }
+
+  const str = String(raw).trim();
+  if (str === '') return 0;
+  if (isError(str)) return str;
+
+  if (/^-?\d+(\.\d+)?$/.test(str)) {
+    return parseFloat(str);
+  }
+
+  return ERRORS.VALUE;
+}
+
 // Main entry point: evaluate a full formula string like "=1+2*3"
-function evaluateFormula(input) {
+function evaluateFormula(input, cells = {}) {
   const tokens = tokenize(input);
-  const parser = createParser(tokens);
+  const parser = createParser(tokens, cells);
   return parser.parse();
 }
 
 // Parser reads tokens and applies operator precedence
-function createParser(tokens) {
+function createParser(tokens, cells) {
   let current = 0;
 
   function peek() {
@@ -100,10 +131,14 @@ function createParser(tokens) {
     return left;
   }
 
-  // Handles numbers and parentheses
+  // Handles numbers, cell references, and parentheses
   function parseFactor() {
     if (match(TOKEN_TYPES.NUMBER)) {
       return previous().value;
+    }
+
+    if (match(TOKEN_TYPES.CELL_REF)) {
+      return resolveCellValue(previous().value, cells);
     }
 
     if (match(TOKEN_TYPES.LPAREN)) {
@@ -132,5 +167,6 @@ function createParser(tokens) {
 
 module.exports = {
   ERRORS,
-  evaluateFormula
+  evaluateFormula,
+  resolveCellValue
 };
