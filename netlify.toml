@@ -1,0 +1,11 @@
+# Netlify deploy config for the static spreadsheet app.
+# No build step: the whole repo is published so frontend/ can load ../backend/ scripts.
+
+[build]
+  publish = "."
+
+# Send the site root to the actual app entry point.
+[[redirects]]
+  from = "/"
+  to = "/frontend/index.html"
+  status = 302
