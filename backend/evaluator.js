@@ -209,9 +209,10 @@ function createParser(tokens, cells) {
     return left;
   }
 
-  // Handles SUM(A1:A5) and AVG(A1:A5)
+  // Handles SUM, AVG, COUNT, MIN and MAX over a range like A1:A5
   function parseFunctionCall(fnName) {
-    if (fnName !== 'SUM' && fnName !== 'AVG') {
+    const supported = ['SUM', 'AVG', 'COUNT', 'MIN', 'MAX'];
+    if (!supported.includes(fnName)) {
       return ERRORS.SYNTAX;
     }
 
@@ -230,14 +231,27 @@ function createParser(tokens, cells) {
     const values = evaluateRange(start, end, cells);
     if (isError(values)) return values;
 
+    if (values.length === 0) return ERRORS.SYNTAX;
+
     if (fnName === 'SUM') {
       return values.reduce((total, value) => total + value, 0);
     }
 
-    if (values.length === 0) return ERRORS.SYNTAX;
+    if (fnName === 'AVG') {
+      const total = values.reduce((sum, value) => sum + value, 0);
+      return total / values.length;
+    }
 
-    const total = values.reduce((sum, value) => sum + value, 0);
-    return total / values.length;
+    if (fnName === 'COUNT') {
+      // Every cell in the range resolves to a number here, so this is the range size.
+      return values.length;
+    }
+
+    if (fnName === 'MIN') {
+      return Math.min(...values);
+    }
+
+    return Math.max(...values);
   }
 
   // Handles numbers, cell references, functions, and parentheses

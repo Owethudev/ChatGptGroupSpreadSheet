@@ -194,4 +194,39 @@ describe('functions and ranges', () => {
   });
 });
 
+//function for testing COUNT, MIN and MAX ranges
+describe('count, min and max', () => {
+  it('counts the cells in a range', () => {
+    expect(evaluateFormula('=COUNT(A1:A3)', { A1: '5', A2: '10', A3: '15' })).toBe(3);
+  });
+
+  it('counts cells in a rectangular range', () => {
+    expect(evaluateFormula('=COUNT(A1:B2)', { A1: '1', B1: '2', A2: '3', B2: '4' })).toBe(4);
+  });
+
+  it('finds the smallest value in a range', () => {
+    expect(evaluateFormula('=MIN(A1:A3)', { A1: '5', A2: '10', A3: '15' })).toBe(5);
+  });
+
+  it('finds the largest value in a range', () => {
+    expect(evaluateFormula('=MAX(A1:A3)', { A1: '5', A2: '10', A3: '15' })).toBe(15);
+  });
+
+  it('treats empty cells as 0 for MIN', () => {
+    expect(evaluateFormula('=MIN(A1:A3)', { A1: '5', A3: '15' })).toBe(0);
+  });
+
+  it('propagates errors from cells inside MIN/MAX', () => {
+    expect(evaluateFormula('=MAX(A1:A2)', { A1: ERRORS.DIV_ZERO, A2: '5' })).toBe(ERRORS.DIV_ZERO);
+  });
+
+  it('returns #VALUE! when a range contains text', () => {
+    expect(evaluateFormula('=MAX(A1:A2)', { A1: 'Hello', A2: '5' })).toBe(ERRORS.VALUE);
+  });
+
+  it('returns #ERROR! when MIN is given a single cell instead of a range', () => {
+    expect(evaluateFormula('=MIN(A1)', { A1: '5' })).toBe(ERRORS.SYNTAX);
+  });
+});
+
 printSummary();
