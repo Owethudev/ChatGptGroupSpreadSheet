@@ -6,7 +6,15 @@
   1.raw string -> 2.[tokenizer] -> 3.tokens[] -> 4.[evaluator] -> 5.result
 */
 
-const { tokenize, TOKEN_TYPES } = require('./tokenizer');
+// In Node (tests) we require the tokenizer; in the browser it is a global.
+// Use evaluator-specific names so browser script tags do not redeclare tokenizer globals.
+let tokenizeFormula, EVALUATOR_TOKEN_TYPES;
+if (typeof require !== 'undefined') {
+  ({ tokenize: tokenizeFormula, TOKEN_TYPES: EVALUATOR_TOKEN_TYPES } = require('./tokenizer'));
+} else {
+  tokenizeFormula = window.tokenize;
+  EVALUATOR_TOKEN_TYPES = window.TOKEN_TYPES;
+}
 
 // Error messages used by the spreadsheet engine
 const ERRORS = {
@@ -124,7 +132,7 @@ function evaluateRange(start, end, cells) {
 
 // Main entry point: evaluate a full formula string like "=1+2*3"
 function evaluateFormula(input, cells = {}) {
-  const tokens = tokenize(input);
+  const tokens = tokenizeFormula(input);
   const parser = createParser(tokens, cells);
   return parser.parse();
 }
@@ -142,7 +150,7 @@ function createParser(tokens, cells) {
   }
 
   function isAtEnd() {
-    return peek().type === TOKEN_TYPES.EOF;
+    return peek().type === EVALUATOR_TOKEN_TYPES.EOF;
   }
 
   function advance() {
@@ -168,7 +176,7 @@ function createParser(tokens, cells) {
     let left = parseTerm();
     if (isError(left)) return left;
 
-    while (check(TOKEN_TYPES.OPERATOR) && (peek().value === '+' || peek().value === '-')) {
+    while (check(EVALUATOR_TOKEN_TYPES.OPERATOR) && (peek().value === '+' || peek().value === '-')) {
       const op = advance().value;
       const right = parseTerm();
       if (isError(right)) return right;
@@ -185,7 +193,7 @@ function createParser(tokens, cells) {
     let left = parseFactor();
     if (isError(left)) return left;
 
-    while (check(TOKEN_TYPES.OPERATOR) && (peek().value === '*' || peek().value === '/')) {
+    while (check(EVALUATOR_TOKEN_TYPES.OPERATOR) && (peek().value === '*' || peek().value === '/')) {
       const op = advance().value;
       const right = parseFactor();
       if (isError(right)) return right;
@@ -207,17 +215,17 @@ function createParser(tokens, cells) {
       return ERRORS.SYNTAX;
     }
 
-    if (!match(TOKEN_TYPES.LPAREN)) return ERRORS.SYNTAX;
+    if (!match(EVALUATOR_TOKEN_TYPES.LPAREN)) return ERRORS.SYNTAX;
 
-    if (!match(TOKEN_TYPES.CELL_REF)) return ERRORS.SYNTAX;
+    if (!match(EVALUATOR_TOKEN_TYPES.CELL_REF)) return ERRORS.SYNTAX;
     const start = previous().value;
 
-    if (!match(TOKEN_TYPES.COLON)) return ERRORS.SYNTAX;
+    if (!match(EVALUATOR_TOKEN_TYPES.COLON)) return ERRORS.SYNTAX;
 
-    if (!match(TOKEN_TYPES.CELL_REF)) return ERRORS.SYNTAX;
+    if (!match(EVALUATOR_TOKEN_TYPES.CELL_REF)) return ERRORS.SYNTAX;
     const end = previous().value;
 
-    if (!match(TOKEN_TYPES.RPAREN)) return ERRORS.SYNTAX;
+    if (!match(EVALUATOR_TOKEN_TYPES.RPAREN)) return ERRORS.SYNTAX;
 
     const values = evaluateRange(start, end, cells);
     if (isError(values)) return values;
@@ -235,29 +243,29 @@ function createParser(tokens, cells) {
   // Handles numbers, cell references, functions, and parentheses
   function parseFactor() {
     // Unary plus or minus, e.g. -8 or -A1
-    if (check(TOKEN_TYPES.OPERATOR) && (peek().value === '-' || peek().value === '+')) {
+    if (check(EVALUATOR_TOKEN_TYPES.OPERATOR) && (peek().value === '-' || peek().value === '+')) {
       const op = advance().value;
       const operand = parseFactor();
       if (isError(operand)) return operand;
       return op === '-' ? -operand : operand;
     }
 
-    if (match(TOKEN_TYPES.NUMBER)) {
+    if (match(EVALUATOR_TOKEN_TYPES.NUMBER)) {
       return previous().value;
     }
 
-    if (match(TOKEN_TYPES.CELL_REF)) {
+    if (match(EVALUATOR_TOKEN_TYPES.CELL_REF)) {
       return resolveCellValue(previous().value, cells);
     }
 
-    if (match(TOKEN_TYPES.FUNCTION)) {
+    if (match(EVALUATOR_TOKEN_TYPES.FUNCTION)) {
       return parseFunctionCall(previous().value);
     }
 
-    if (match(TOKEN_TYPES.LPAREN)) {
+    if (match(EVALUATOR_TOKEN_TYPES.LPAREN)) {
       const value = parseExpression();
       if (isError(value)) return value;
-      if (!match(TOKEN_TYPES.RPAREN)) return ERRORS.SYNTAX;
+      if (!match(EVALUATOR_TOKEN_TYPES.RPAREN)) return ERRORS.SYNTAX;
       return value;
     }
 
@@ -265,7 +273,7 @@ function createParser(tokens, cells) {
   }
 
   function parse() {
-    if (check(TOKEN_TYPES.EQUALS)) advance();
+    if (check(EVALUATOR_TOKEN_TYPES.EQUALS)) advance();
 
     const result = parseExpression();
     if (isError(result)) return result;
@@ -278,9 +286,19 @@ function createParser(tokens, cells) {
   return { parse };
 }
 
-module.exports = {
-  ERRORS,
-  evaluateFormula,
-  resolveCellValue,
-  expandRange
-};
+// Node (tests) use module.exports; the browser uses window globals.
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {
+    ERRORS,
+    evaluateFormula,
+    resolveCellValue,
+    expandRange
+  };
+}
+
+if (typeof window !== 'undefined') {
+  window.ERRORS = ERRORS;
+  window.evaluateFormula = evaluateFormula;
+  window.resolveCellValue = resolveCellValue;
+  window.expandRange = expandRange;
+}

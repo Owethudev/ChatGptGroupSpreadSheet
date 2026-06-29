@@ -161,7 +161,15 @@ function tokenize(input) {
 }
 
 //EXPORTS
-module.exports = {
-  TOKEN_TYPES,
-  tokenize
-};
+// Node (tests) use module.exports; the browser uses window globals.
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {
+    TOKEN_TYPES,
+    tokenize
+  };
+}
+
+if (typeof window !== 'undefined') {
+  window.TOKEN_TYPES = TOKEN_TYPES;
+  window.tokenize = tokenize;
+}
