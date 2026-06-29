@@ -9,58 +9,76 @@ What this does:
 
 */
 
-const { evaluate } = require("./evaluationEngine");
+const { evaluateFormula, ERRORS } = require("./evaluator");
+const { tokenize, TOKEN_TYPES }   = require('./tokenizer');
 
-// forward: A1 -> [B1, C1]
+
+
 const dependentsMap = {};
-
-// reverse: B1 -> [A1]
 const dependenciesMap = {};
-
-// stored values + ASTs
 const values = {};
-const asts = {};
-
-// errors
+const formulas = {};
 const errors = {};
+
+/* HELPERS
+Returns true when value is a spreadsheet error string.
+*/
+function isError(value) {
+    return typeof value === 'string' && value.startsWith('#');
+}
 
 /*
 SET CELL
 */
 
-function setCell(cell, ast, sheet) {
+function setCell(cell, formula) {
+    formula = (formula !== undefined && formula !== null)
+        ? String(formula).trim()
+        : '';
 
-    asts[cell] = ast;
-
-    // 1. check for circular reference
-    if (detectCycle(cell, ast)) {
-        errors[cell] = "#CIRCULAR_REF";
-        values[cell] = "#ERROR";
-        return "#CIRCULAR_REF";
+    // ── Empty input → clear this cell ───────────────────────────────────
+    if (!formula) {
+        removeDependencies(cell);
+        delete formulas[cell];
+        delete values[cell];
+        delete errors[cell];
+        propagate(cell);       // notify dependents the value is now 0
+        return '';
     }
-
-    // 2. remove old dependencies
+    formulas[cell] = formula;
+    
+        // ── 1. Circular-reference check ──────────────────────────────────────
+        //    Only formulas can reference other cells, so only check those.
+        if (formula.startsWith('=') && detectCycle(cell, formula)) {
+            errors[cell] = ERRORS.CIRCULAR;
+            values[cell] = ERRORS.CIRCULAR;
+            return ERRORS.CIRCULAR;
+        }
+    // ── 2. Remove stale dependency links from the old formula ────────────
     removeDependencies(cell);
 
-    // 3. find new dependencies from AST
-    const deps = extractDependencies(ast);
+    // ── 3. Extract new dependencies using the tokenizer ──────────────────
+    const deps = extractDependencies(formula);
     dependenciesMap[cell] = deps;
 
-    // 4. build forward links
+    // ── 4. Build forward links so each dependency knows this cell needs it
     for (const d of deps) {
-
-        if (!dependentsMap[d]) {
-            dependentsMap[d] = new Set();
-        }
-
+        if (!dependentsMap[d]) dependentsMap[d] = new Set();
         dependentsMap[d].add(cell);
     }
 
-    // 5. calculate value
-    values[cell] = safeEvaluate(ast, sheet);
+    // ── 5. Compute this cell's value ─────────────────────────────────────
+    const result = safeEvaluate(formula);
+    values[cell] = result;
 
-    // 6. propagate updates to dependents
-    propagate(cell, sheet);
+    if (isError(result)) {
+        errors[cell] = result;
+    } else {
+        delete errors[cell];
+    }
+
+    // ── 6. Propagate the change to every cell that depends on this one ───
+    propagate(cell);
 
     return values[cell];
 }
@@ -73,7 +91,7 @@ function getCell(cell) {
 
     if (errors[cell]) return errors[cell];
 
-    return values[cell] ?? 0;
+    return values[cell] !== undefined ? values[cell] : 0;
 }
 
 /*
@@ -86,36 +104,54 @@ function removeDependencies(cell) {
     if (!old) return;
 
     for (const d of old) {
-        dependentsMap[d]?.delete(cell);
+        if (dependentsMap[d]) dependentsMap[d].delete(cell);
     }
 
     delete dependenciesMap[cell];
 }
 
 /*
-GET DEPENDENCIES FROM AST
+GET DEPENDENCIES FROM Formular String
+ Uses the tokenizer so we never have to parse the grammar manually.
+   Handles both single references (=A1+B2) and ranges (=SUM(A1:A5)).
+
+   Token stream example for "=SUM(A1:A5) + B1":
+     EQUALS  FUNCTION(SUM)  LPAREN  CELL_REF(A1)  COLON  CELL_REF(A5)  RPAREN
+     OPERATOR(+)  CELL_REF(B1)  EOF
+
+   We iterate the flat token list:
+   - CELL_REF followed by COLON + CELL_REF  →  expand the range
+   - standalone CELL_REF                    →  add it directly
 */
+function extractDependencies(formula) {
+    const list = new Set();
 
-function extractDependencies(node, list = new Set()) {
+    // Plain values (not formulas) have no cell dependencies.
+    if (!formula || !formula.startsWith('=')) return list;
 
-    if (!node) return list;
+    try {
+        const tokens = tokenize(formula);
 
-    if (node.type === "CellReference") {
-        list.add(node.reference);
-    }
+        for (let i = 0; i < tokens.length; i++) {
+            const tok = tokens[i];
 
-    if (node.type === "BinaryExpression") {
-        extractDependencies(node.left, list);
-        extractDependencies(node.right, list);
-    }
+            if (tok.type === TOKEN_TYPES.CELL_REF) {
+                const isRange =
+                    tokens[i + 1] && tokens[i + 1].type === TOKEN_TYPES.COLON &&
+                    tokens[i + 2] && tokens[i + 2].type === TOKEN_TYPES.CELL_REF;
 
-    if (node.type === "FunctionCall") {
-        node.arguments.forEach(arg => extractDependencies(arg, list));
-    }
-
-    if (node.type === "Range") {
-        expandRange(node.start, node.end)
-            .forEach(c => list.add(c));
+                if (isRange) {
+                    // Expand A1:B5 → every cell address in that rectangle
+                    expandRange(tok.value, tokens[i + 2].value)
+                        .forEach(c => list.add(c));
+                    i += 2;  // skip past the COLON and end CELL_REF
+                } else {
+                    list.add(tok.value);
+                }
+            }
+        }
+    } catch (_) {
+        // If the tokenizer throws (bad formula), treat as no dependencies.
     }
 
     return list;
@@ -123,34 +159,31 @@ function extractDependencies(node, list = new Set()) {
 
 /*
 RECALCULATION
+Starts at the cell that just changed, then fans out level by level
+through dependentsMap until every affected cell is re-evaluated.
 */
 
-function propagate(startCell, sheet) {
-
+function propagate(startCell) {
     const queue = [startCell];
     const visited = new Set();
 
     while (queue.length > 0) {
-
         const current = queue.shift();
-
         const deps = dependentsMap[current];
         if (!deps) continue;
 
         for (const cell of deps) {
-
             if (visited.has(cell)) continue;
             visited.add(cell);
 
-            const ast = asts[cell];
-            if (!ast) continue;
+            const formula = formulas[cell];
+            if (formula === undefined) continue;
 
-            const value = safeEvaluate(ast, sheet);
-
+            const value = safeEvaluate(formula);
             values[cell] = value;
 
-            if (value === "#ERROR") {
-                errors[cell] = "#ERROR";
+            if (isError(value)) {
+                errors[cell] = value;
             } else {
                 delete errors[cell];
             }
@@ -163,20 +196,29 @@ function propagate(startCell, sheet) {
 SAFE EVALUATION
 */
 
-function safeEvaluate(ast, sheet) {
-
-    try {
-        return evaluate(ast, sheet);
-    } catch (err) {
-        return "#ERROR";
-    }
+function safeEvaluate(formula) {
+    if (!formula) return '';
+    
+        if (formula.startsWith('=')) {
+            try {
+                return evaluateFormula(formula, values);
+            } catch (err) {
+                return ERRORS.SYNTAX;
+            }
+        }
+    
+        // Plain number?
+        const num = Number(formula);
+        if (!isNaN(num) && formula.trim() !== '') return num;
+    
+        // Plain text
+        return formula;
 }
 /*
 CYCLE DETECTION
 */
-function detectCycle(startCell, ast) {
-
-    const deps = extractDependencies(ast);
+function detectCycle(startCell, formula) {
+    const deps = extractDependencies(formula);
     const visited = new Set();
     const stack = new Set();
 
@@ -215,12 +257,9 @@ RANGE HELPERS
 */
 
 function expandRange(start, end) {
-
     const cells = [];
-
     const startCol = getCol(start);
     const startRow = getRow(start);
-
     const endCol = getCol(end);
     const endRow = getRow(end);
 
@@ -242,28 +281,34 @@ function getRow(cell) {
 }
 
 function colToNum(col) {
-
     let num = 0;
 
     for (const c of col) {
         num = num * 26 + (c.charCodeAt(0) - 64);
     }
-
     return num;
 }
 
 function numToCol(num) {
-
     let col = "";
-
     while (num > 0) {
-
         const r = (num - 1) % 26;
         col = String.fromCharCode(65 + r) + col;
         num = Math.floor((num - 1) / 26);
     }
-
-    return col;
+ return col;
+}
+/* RESET
+Wipes all module state.  Useful for test isolation.
+const { setCell, getCell, reset } = require('./dependency_graph');
+    beforeEach(() => reset());
+*/
+function reset() {
+    for (const k of Object.keys(dependentsMap))   delete dependentsMap[k];
+    for (const k of Object.keys(dependenciesMap)) delete dependenciesMap[k];
+    for (const k of Object.keys(formulas))        delete formulas[k];
+    for (const k of Object.keys(values))          delete values[k];
+    for (const k of Object.keys(errors))          delete errors[k];
 }
 
 /*
@@ -272,5 +317,6 @@ EXPORTS
 
 module.exports = {
     setCell,
-    getCell
+    getCell,
+    reset
 };
