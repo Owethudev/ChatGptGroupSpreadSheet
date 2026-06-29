@@ -234,6 +234,14 @@ function createParser(tokens, cells) {
 
   // Handles numbers, cell references, functions, and parentheses
   function parseFactor() {
+    // Unary plus or minus, e.g. -8 or -A1
+    if (check(TOKEN_TYPES.OPERATOR) && (peek().value === '-' || peek().value === '+')) {
+      const op = advance().value;
+      const operand = parseFactor();
+      if (isError(operand)) return operand;
+      return op === '-' ? -operand : operand;
+    }
+
     if (match(TOKEN_TYPES.NUMBER)) {
       return previous().value;
     }

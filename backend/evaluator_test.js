@@ -104,6 +104,33 @@ describe('errors', () => {
   });
 });
 
+//function for testing negative and unary minus numbers
+describe('negative numbers', () => {
+  it('evaluates a negative number', () => {
+    expect(evaluateFormula('=-8')).toBe(-8);
+  });
+
+  it('evaluates a positive sign prefix', () => {
+    expect(evaluateFormula('=+8')).toBe(8);
+  });
+
+  it('subtracts a negative number', () => {
+    expect(evaluateFormula('=5--3')).toBe(8);
+  });
+
+  it('multiplies by a negative number', () => {
+    expect(evaluateFormula('=A1*-1', { A1: '5' })).toBe(-5);
+  });
+
+  it('negates a value in parentheses', () => {
+    expect(evaluateFormula('=-(2+3)')).toBe(-5);
+  });
+
+  it('negates a cell reference', () => {
+    expect(evaluateFormula('=-A1', { A1: '7' })).toBe(-7);
+  });
+});
+
 //function for testing cell references
 describe('cell references', () => {
   it('adds values from two cells', () => {
