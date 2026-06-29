@@ -184,6 +184,8 @@ body::after {
 .spreadsheet-app {
     display: flex;
     flex-direction: column;
+    justify-content: center;
+    align-items: center;
     height: 100vh;
     overflow: hidden;
     position: relative;
@@ -193,10 +195,6 @@ body::after {
 
 /* ── 5. HEADER ────────────────────────────────────────── */
 .app-header {
-    background: var(--glass);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border-bottom: 1px solid rgba(124, 106, 247, 0.3);
     padding: 10px 16px 10px 44px;
     flex-shrink: 0;
     position: relative;
@@ -218,10 +216,6 @@ body::after {
     align-items: center;
     gap: 10px;
     padding: 6px 14px 6px 44px;
-    background: var(--glass);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border-bottom: 1px solid var(--border);
     flex-shrink: 0;
     position: relative;
     z-index: 2;
