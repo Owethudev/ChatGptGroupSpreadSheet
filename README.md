@@ -42,8 +42,8 @@ This project is a mini spreadsheet application built as a group project. It allo
 
 ## Team Members
 
-- Frontend: Malebo, Owethu
-- Backend: Portia, Shaun, Mandla
+- Frontend: Malebo Nkuna, Owethu Jezile
+- Backend: Portia Mashaba, Shaun Maselela, Mandla Sikhosana
 
 ## Project Screenshots
 
