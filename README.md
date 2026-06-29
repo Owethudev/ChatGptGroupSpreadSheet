@@ -44,3 +44,9 @@ This project is a mini spreadsheet application built as a group project. It allo
 
 - Frontend: Malebo, Owethu
 - Backend: Portia, Shaun, Mandla
+
+## Project Screenshots
+
+![Project Screenshot 1](images/screenshot-1.png)
+
+![Project Screenshot 2](images/screenshot-2.png)
